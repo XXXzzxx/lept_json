@@ -31,7 +31,7 @@ int lept_parse_number(lept_context* c, lept_value* v) {
 	if (*p == '0')
 		p++;
 	else {
-		if (!check09(*p))
+		if (!check09(*p)) //这边保证了一个合法数字只能以数字开头
 			return LEPT_PARSE_INVALID_VALUE;
 		while (check09(*p))
 			p++;
