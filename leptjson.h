@@ -12,14 +12,7 @@ typedef enum {
 }lept_type;
 
 typedef struct {
-	union {
-		double n;
-		struct {
-			char* s;
-			size_t len;
-		};
-	};
-
+	double n;
 	lept_type type;
 }lept_value;
 
