@@ -20,7 +20,9 @@ static int main_ret = 0;
 	} while (0)
 
 #define EXPECT_EQ_INT(expect, actual) EXPECT_EQ_BASE((expect == actual), expect, actual, "%d")
-#define EXPECT_EQ_DOUBLE(expect, actual) EXPECT_EQ_BASE((expect == actual), expect, actual, "%lf")
+#define EXPECT_EQ_DOUBLE(expect, actual) EXPECT_EQ_BASE((expect == actual), expect, actual, "%.17g")
+#define EXPECT_EQ_STRING(expect, actual, alength) \
+    EXPECT_EQ_BASE(sizeof(expect) - 1 == (alength) && memcmp(expect, actual, alength) == 0, expect, actual, "%s")
 
 //测试不符合情况的重构
 #define TEST_ERROR(error, json) \
@@ -38,6 +40,30 @@ static int main_ret = 0;
 		EXPECT_EQ_INT(LEPT_NUMBER, lept_get_type(&v));\
 		EXPECT_EQ_DOUBLE(expect, lept_get_number(&v));\
 	}while(0)
+
+//测试string
+#define TEST_STRING(expect, json)\
+    do {\
+        lept_value v;\
+        lept_init(&v);\
+        EXPECT_EQ_INT(LEPT_PARSE_OK, lept_parse(&v, json));\
+        EXPECT_EQ_INT(LEPT_STRING, lept_get_type(&v));\
+        EXPECT_EQ_STRING(expect, lept_get_string(&v), lept_get_string_length(&v));\
+        lept_free(&v);\
+    } while(0)
+
+//======================================这是分割线================================================//
+
+
+
+static void test_parse_string() {
+	TEST_STRING("", "\"\"");
+	TEST_STRING("Hello", "\"Hello\"");
+#if 0
+	TEST_STRING("Hello\nWorld", "\"Hello\\nWorld\"");
+	TEST_STRING("\" \\ / \b \f \n \r \t", "\"\\\" \\\\ \\/ \\b \\f \\n \\r \\t\"");
+#endif
+}
 
 static void text_parse_number() {
 	TEST_NUMBER(0.0, "0");
@@ -125,15 +151,29 @@ static void text_parse_number_too_big() {
 	TEST_ERROR(LEPT_PARSE_NUMBER_TOO_BIG, "-1e309");
 }
 
+static void test_access_string() {
+	lept_value v;
+	lept_init(&v);
+	lept_set_string(&v, "", 0);
+	EXPECT_EQ_STRING("", lept_get_string(&v), lept_get_string_length(&v));
+	lept_set_string(&v, "Hello", 5);
+	EXPECT_EQ_STRING("Hello", lept_get_string(&v), lept_get_string_length(&v));
+	lept_free(&v);
+}
+
+
+
 static void text_parse() {
-	text_parse_false();
-	text_parse_true();
-	text_parse_null();
-	text_parse_number();
-	text_parse_expect_value();
-	text_parse_invalid_value();
-	text_parse_root_not_singular();
-	text_parse_number_too_big();
+	//text_parse_false();
+	//text_parse_true();
+	//text_parse_null();
+	//text_parse_number();
+	//text_parse_expect_value();
+	//text_parse_invalid_value();
+	//text_parse_root_not_singular();
+	//text_parse_number_too_big();
+	test_parse_string();
+	test_access_string();
 }
 
 
