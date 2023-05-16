@@ -118,8 +118,8 @@ int lept_parse_literal(lept_context* c, lept_value* v, const char* str, int type
 }
 
 int lept_parse_string(lept_context* c, lept_value* v) {
-	c->json++;
 	const char* p = c->json;
+	p++;
 	size_t head = c->top;
 	size_t len = 0;
 	while (1) {
@@ -133,7 +133,30 @@ int lept_parse_string(lept_context* c, lept_value* v) {
 			lept_set_string(v, (const char*)lept_context_pop(c, len), len);
 			c->json = p;
 			return LEPT_PARSE_OK;
+		case'\\':
+		{
+			// 对转义字符进行转换
+			ch = *(p++);
+			switch (ch){
+			case 'n': PUTC(c, '\n'); break;
+			case 't': PUTC(c, '\t'); break;
+			case 'b': PUTC(c, '\b'); break;
+			case 'r': PUTC(c, '\r'); break;
+			case 'f': PUTC(c, '\f'); break;
+			case '/': PUTC(c, '\/'); break;
+			case '\\': PUTC(c, '\\'); break;
+			case '\"': PUTC(c, '\"'); break;
+			default:
+				c->top = head;
+				return LEPT_PARSE_INVALID_STRING;
+			}
+			break;  //switch 语句的break老忘记 然后就进入了default
+		}
 		default:
+			if (ch < 0x20) {
+				c->top = head;
+				return LEPT_PARSE_INVALID_STRING_CHAR;
+			}
 			PUTC(c, ch);
 		}
 	}
@@ -193,13 +216,24 @@ double lept_get_number(const lept_value* v) {
 	return v->u.n;
 }
 void lept_set_number(lept_value* v, double n) {
-
+	assert(v != NULL);
+	v->u.n = n;
+	v->type = LEPT_NUMBER;
 }
 
 int lept_get_boolean(const lept_value* v) {
-	return 1;
+	assert(v != NULL && (v->type == LEPT_TRUE || v->type == LEPT_FALSE));
+	if (v->type == LEPT_TRUE)
+		return 1;
+	return 0;
 }
+
 void lept_set_boolean(lept_value* v, int b) {
+	assert(v != NULL); //b不限制在0 1 中
+	if (b)
+		v->type = LEPT_TRUE;
+	else
+		v->type = LEPT_FALSE;
 
 }
 

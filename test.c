@@ -23,6 +23,9 @@ static int main_ret = 0;
 #define EXPECT_EQ_DOUBLE(expect, actual) EXPECT_EQ_BASE((expect == actual), expect, actual, "%.17g")
 #define EXPECT_EQ_STRING(expect, actual, alength) \
     EXPECT_EQ_BASE(sizeof(expect) - 1 == (alength) && memcmp(expect, actual, alength) == 0, expect, actual, "%s")
+#define EXPECT_EQ_BOOLEAN(expect, actual) EXPECT_EQ_BASE((expect == actual), expect, actual, "%d")
+#define EXPECT_EQ_NUMBER(expect, actual) EXPECT_EQ_BASE((expect == actual), expect, actual, "%.17g")
+
 
 //测试不符合情况的重构
 #define TEST_ERROR(error, json) \
@@ -59,10 +62,31 @@ static int main_ret = 0;
 static void test_parse_string() {
 	TEST_STRING("", "\"\"");
 	TEST_STRING("Hello", "\"Hello\"");
-#if 0
+
 	TEST_STRING("Hello\nWorld", "\"Hello\\nWorld\"");
 	TEST_STRING("\" \\ / \b \f \n \r \t", "\"\\\" \\\\ \\/ \\b \\f \\n \\r \\t\"");
-#endif
+
+}
+
+
+static void test_parse_missing_quotation_mark() {
+	TEST_ERROR(LEPT_PARSE_MISSING_QUOTATION_MARK, "\"");
+	TEST_ERROR(LEPT_PARSE_MISSING_QUOTATION_MARK, "\"abc");
+}
+
+static void test_parse_invalid_string_escape() {
+
+	TEST_ERROR(LEPT_PARSE_INVALID_STRING, "\"\\v\"");
+	TEST_ERROR(LEPT_PARSE_INVALID_STRING, "\"\\'\"");
+	TEST_ERROR(LEPT_PARSE_INVALID_STRING, "\"\\0\"");
+	TEST_ERROR(LEPT_PARSE_INVALID_STRING, "\"\\x12\"");
+
+}
+
+static void test_parse_invalid_string_char() {
+
+	TEST_ERROR(LEPT_PARSE_INVALID_STRING_CHAR, "\"\x01\"");
+	TEST_ERROR(LEPT_PARSE_INVALID_STRING_CHAR, "\"\x1F\"");
 }
 
 static void text_parse_number() {
@@ -161,7 +185,29 @@ static void test_access_string() {
 	lept_free(&v);
 }
 
+static void test_access_boolean() {
+	lept_value v;
+	lept_init(&v);
+	lept_set_boolean(&v, 0);
+	EXPECT_EQ_BOOLEAN(0, lept_get_boolean(&v));
+	lept_set_boolean(&v, 23423);
+	EXPECT_EQ_BOOLEAN(1, lept_get_boolean(&v));
+	lept_free(&v);
+}
 
+static void test_access_number() {
+	lept_value v;
+	lept_init(&v);
+	lept_set_number(&v, 342.123);
+	EXPECT_EQ_NUMBER(342.123, lept_get_number(&v));
+	lept_set_number(&v, 342.123e+232);
+	EXPECT_EQ_NUMBER(342.123e+232, lept_get_number(&v));
+	lept_free(&v);
+}
+
+static void test_access_null() {
+
+}
 
 static void text_parse() {
 	//text_parse_false();
@@ -173,7 +219,14 @@ static void text_parse() {
 	//text_parse_root_not_singular();
 	//text_parse_number_too_big();
 	test_parse_string();
-	test_access_string();
+	test_parse_missing_quotation_mark();
+	test_parse_invalid_string_escape();
+	test_parse_invalid_string_char();
+	//test_parse_invalid_string_char();
+	//test_access_string();
+	//test_access_boolean();
+	//test_access_number();
+	//test_access_null();
 }
 
 

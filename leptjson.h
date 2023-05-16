@@ -1,14 +1,15 @@
 #ifndef LEPTJSON_H__
 #define LEPTJSON_H__
 
-typedef enum { 
+typedef enum {
 	LEPT_NULL,
 	LEPT_FALSE,
 	LEPT_TRUE,
 	LEPT_NUMBER,
 	LEPT_STRING,
 	LEPT_ARRAY,
-	LEPT_OBJECT
+	LEPT_OBJECT,
+	LEPT_BOOLEAN,
 }lept_type;
 
 typedef struct {
@@ -27,9 +28,11 @@ enum {
 	LEPT_PARSE_OK = 0,
 	LEPT_PARSE_EXPEXT_VALUE,
 	LEPT_PARSE_INVALID_VALUE,
+	LEPT_PARSE_INVALID_STRING,
 	LEPT_PARSE_ROOT_NOT_SINGULAR,
 	LEPT_PARSE_NUMBER_TOO_BIG,
-	LEPT_PARSE_MISSING_QUOTATION_MARK
+	LEPT_PARSE_MISSING_QUOTATION_MARK, 
+	LEPT_PARSE_INVALID_STRING_CHAR
 };
 
 #define lept_init(v) do { (v)->type = LEPT_NULL; } while(0)
@@ -53,5 +56,5 @@ size_t lept_get_string_length(const lept_value* v);
 void lept_set_string(lept_value* v, const char* s, size_t len);
 void lept_free(lept_value* v);
 
-//ջ
+
 #endif // !LEPTJSON_H__
