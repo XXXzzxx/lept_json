@@ -1,3 +1,8 @@
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
@@ -14,6 +19,7 @@
 #define check09(ch) ((ch) >= '0' && (ch) <= '9')
 #define check19(ch) ((ch) >= '1' && (ch) <= '9')
 #define PUTC(c, ch) do{*(char *)lept_context_push(c, sizeof(char)) = (ch); }while(0)   
+#define return_error(re) do{c->top = head; return re;}while(0)
 //*(char *) 括号里面的强制转化, 外面的*是解引用
 
 typedef struct
@@ -100,7 +106,7 @@ int lept_parse_number(lept_context* c, lept_value* v) {
 	v->type = LEPT_NUMBER;
 	c->json = p;
 	return LEPT_PARSE_OK;
-	
+
 }
 
 //false true null  三合一
@@ -117,11 +123,56 @@ int lept_parse_literal(lept_context* c, lept_value* v, const char* str, int type
 	return LEPT_PARSE_OK;
 }
 
+static const char* lept_parse_hex4(const char* p, unsigned* u) {
+	int t = 4;
+	*u = 0;
+	// u是一个无符号整数  将十六进制转化成10进制数
+	while (t--)
+	{
+		char ch = *(p++);
+		*u = *u << 4;  //每次*16
+		if (ch >= '0' && ch <= '9')
+			*u = *u | (ch - '0');
+		else if (ch >= 'A' && ch <= 'F')
+			*u = *u | (ch - 'A' + 10);
+		else if (ch >= 'a' && ch <= 'f')
+			*u = *u | (ch - 'a' + 10);
+		else
+			return NULL;
+	}
+	return p;
+}
+
+static void lept_encode_utf8(lept_context* c, unsigned u) {
+	assert(u >= 0x0000 && u <= 0x10FFFF);
+
+	if (u <= 0x007F && u >= 0x0000)
+		PUTC(c, u & 0xFF); // 因为u < 127  所以转化成char类型 不会丢失数据;
+
+	else if (u <= 0x07FF && u >= 0x0080) {
+		PUTC(c, 0xC0 | ((u >> 6) & 0xDF));
+		PUTC(c, 0x80 | ( u       & 0x3F));
+	}
+	else if (u <= 0xFFFF && u >= 0x0800) {
+		PUTC(c, 0xE0 | ((u >> 12) & 0xEF));
+		PUTC(c, 0x80 | ((u >> 6)  & 0x3F));
+		PUTC(c, 0x80 | ( u        & 0x3F));
+	}
+	else if (u <= 0x10FFFF && u >= 0x10000) {
+		PUTC(c, 0xF0 | ((u >> 18) & 0xF7));
+		PUTC(c, 0x80 | ((u >> 12) & 0x3F));
+		PUTC(c, 0x80 | ((u >> 6)  & 0x3F));
+		PUTC(c, 0x80 | ( u        & 0x3F));
+	}
+
+}
+
 int lept_parse_string(lept_context* c, lept_value* v) {
 	const char* p = c->json;
 	p++;
 	size_t head = c->top;
 	size_t len = 0;
+	unsigned  ul = 0, u = 0, uh = 0;
 	while (1) {
 		char ch = *(p++);
 		switch (ch) {
@@ -137,20 +188,48 @@ int lept_parse_string(lept_context* c, lept_value* v) {
 		{
 			// 对转义字符进行转换
 			ch = *(p++);
-			switch (ch){
-			case 'n': PUTC(c, '\n'); break;
-			case 't': PUTC(c, '\t'); break;
-			case 'b': PUTC(c, '\b'); break;
-			case 'r': PUTC(c, '\r'); break;
-			case 'f': PUTC(c, '\f'); break;
-			case '/': PUTC(c, '\/'); break;
-			case '\\': PUTC(c, '\\'); break;
-			case '\"': PUTC(c, '\"'); break;
-			default:
-				c->top = head;
-				return LEPT_PARSE_INVALID_STRING;
-			}
-			break;  //switch 语句的break老忘记 然后就进入了default
+			switch (ch) {
+				case 'n': PUTC(c, '\n'); break;
+				case 't': PUTC(c, '\t'); break;
+				case 'b': PUTC(c, '\b'); break;
+				case 'r': PUTC(c, '\r'); break;
+				case 'f': PUTC(c, '\f'); break;
+				case '/': PUTC(c, '/'); break;
+				case '\\': PUTC(c, '\\'); break;
+				case '\"': PUTC(c, '\"'); break;
+				case 'u': 
+					if (!(p = lept_parse_hex4(p, &uh))) {
+						return_error(LEPT_PARSE_INVALID_UNICODE_HEX); //十六进制格式错误
+					}
+					u = uh;//格式正确
+
+					//一下是有高低代理项
+					if (u <= 0xDBFF && u >= 0xD800) {
+						ch = *(p++);		
+						if (ch != '\\')
+							return_error(LEPT_PARSE_INVALID_UNICODE_SURROGATE);
+				
+						ch = *(p++);
+						if (ch != 'u')
+							return_error(LEPT_PARSE_INVALID_UNICODE_SURROGATE);
+
+						if (!(p = lept_parse_hex4(p, &ul)))
+							return_error(LEPT_PARSE_INVALID_UNICODE_HEX);
+
+						if (ul < 0xDC00 || ul > 0xDFFF)
+							return_error(LEPT_PARSE_INVALID_UNICODE_SURROGATE);
+
+						// 这是一个计算码点
+						u = 0x10000 + (uh - 0xD800) * 0x400 + (ul - 0xDC00);
+
+					}
+					lept_encode_utf8(c, u);
+					break;
+				default:
+					c->top = head;
+					return LEPT_PARSE_INVALID_STRING;
+				}
+				break;  //switch 语句的break老忘记 然后就进入了default
 		}
 		default:
 			if (ch < 0x20) {
@@ -184,7 +263,7 @@ int lept_parse(lept_value* v, const char* json) {
 
 	v->type = LEPT_NULL;
 	lept_parse_white(&c);
-	int ret = -1;	
+	int ret = -1;
 	if ((ret = lept_parse_value(&c, v)) == LEPT_PARSE_OK) {
 		lept_parse_white(&c);
 		if (*c.json != '\0') {
@@ -216,6 +295,7 @@ double lept_get_number(const lept_value* v) {
 	return v->u.n;
 }
 void lept_set_number(lept_value* v, double n) {
+	lept_free(v);
 	assert(v != NULL);
 	v->u.n = n;
 	v->type = LEPT_NUMBER;
@@ -229,6 +309,7 @@ int lept_get_boolean(const lept_value* v) {
 }
 
 void lept_set_boolean(lept_value* v, int b) {
+	lept_free(v);
 	assert(v != NULL); //b不限制在0 1 中
 	if (b)
 		v->type = LEPT_TRUE;
@@ -236,7 +317,6 @@ void lept_set_boolean(lept_value* v, int b) {
 		v->type = LEPT_FALSE;
 
 }
-
 
 const char* lept_get_string(const lept_value* v) {
 	assert(v != NULL && v->type == LEPT_STRING);

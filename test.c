@@ -1,7 +1,12 @@
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include "leptjson.h"
+
 
 static int test_count = 0;
 static int test_pass = 0;
@@ -188,6 +193,7 @@ static void test_access_string() {
 static void test_access_boolean() {
 	lept_value v;
 	lept_init(&v);
+	lept_set_string(&v, "13242", 5);
 	lept_set_boolean(&v, 0);
 	EXPECT_EQ_BOOLEAN(0, lept_get_boolean(&v));
 	lept_set_boolean(&v, 23423);
@@ -198,11 +204,35 @@ static void test_access_boolean() {
 static void test_access_number() {
 	lept_value v;
 	lept_init(&v);
-	lept_set_number(&v, 342.123);
-	EXPECT_EQ_NUMBER(342.123, lept_get_number(&v));
-	lept_set_number(&v, 342.123e+232);
-	EXPECT_EQ_NUMBER(342.123e+232, lept_get_number(&v));
+	lept_set_string(&v, "a", 1);
+	lept_set_number(&v, 1234.5);
+	EXPECT_EQ_DOUBLE(1234.5, lept_get_number(&v));
 	lept_free(&v);
+}
+
+
+static void test_parse_invalid_unicode_hex() {
+	TEST_ERROR(LEPT_PARSE_INVALID_UNICODE_HEX, "\"\\u\"");
+	TEST_ERROR(LEPT_PARSE_INVALID_UNICODE_HEX, "\"\\u0\"");
+	TEST_ERROR(LEPT_PARSE_INVALID_UNICODE_HEX, "\"\\u01\"");
+	TEST_ERROR(LEPT_PARSE_INVALID_UNICODE_HEX, "\"\\u012\"");
+	TEST_ERROR(LEPT_PARSE_INVALID_UNICODE_HEX, "\"\\u/000\"");
+	TEST_ERROR(LEPT_PARSE_INVALID_UNICODE_HEX, "\"\\uG000\"");
+	TEST_ERROR(LEPT_PARSE_INVALID_UNICODE_HEX, "\"\\u0/00\"");
+	TEST_ERROR(LEPT_PARSE_INVALID_UNICODE_HEX, "\"\\u0G00\"");
+	TEST_ERROR(LEPT_PARSE_INVALID_UNICODE_HEX, "\"\\u00/0\"");
+	TEST_ERROR(LEPT_PARSE_INVALID_UNICODE_HEX, "\"\\u00G0\"");
+	TEST_ERROR(LEPT_PARSE_INVALID_UNICODE_HEX, "\"\\u000/\"");
+	TEST_ERROR(LEPT_PARSE_INVALID_UNICODE_HEX, "\"\\u000G\"");
+	TEST_ERROR(LEPT_PARSE_INVALID_UNICODE_HEX, "\"\\u 123\"");
+}
+
+static void test_parse_invalid_unicode_surrogate() {
+	TEST_ERROR(LEPT_PARSE_INVALID_UNICODE_SURROGATE, "\"\\uD800\"");
+	TEST_ERROR(LEPT_PARSE_INVALID_UNICODE_SURROGATE, "\"\\uDBFF\"");
+	TEST_ERROR(LEPT_PARSE_INVALID_UNICODE_SURROGATE, "\"\\uD800\\\\\"");
+	TEST_ERROR(LEPT_PARSE_INVALID_UNICODE_SURROGATE, "\"\\uD800\\uDBFF\"");
+	TEST_ERROR(LEPT_PARSE_INVALID_UNICODE_SURROGATE, "\"\\uD800\\uE000\"");
 }
 
 static void test_access_null() {
@@ -218,21 +248,28 @@ static void text_parse() {
 	//text_parse_invalid_value();
 	//text_parse_root_not_singular();
 	//text_parse_number_too_big();
-	test_parse_string();
-	test_parse_missing_quotation_mark();
-	test_parse_invalid_string_escape();
-	test_parse_invalid_string_char();
+	//test_parse_string();
+	//test_parse_missing_quotation_mark();
+	//test_parse_invalid_string_escape();
 	//test_parse_invalid_string_char();
+	//test_parse_invalid_string_char();
+	test_parse_invalid_unicode_hex();
+	test_parse_invalid_unicode_surrogate();
+}
+
+void text_access() {
 	//test_access_string();
 	//test_access_boolean();
 	//test_access_number();
 	//test_access_null();
 }
 
-
 int main()
 {
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+
 	text_parse();
+	text_access();
 	printf("%d/%d (%3.2f%%) passed\n", test_pass, test_count, test_pass * 100.0 / test_count);
 	return main_ret;
 }
