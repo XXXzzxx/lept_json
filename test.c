@@ -30,6 +30,11 @@ static int main_ret = 0;
     EXPECT_EQ_BASE(sizeof(expect) - 1 == (alength) && memcmp(expect, actual, alength) == 0, expect, actual, "%s")
 #define EXPECT_EQ_BOOLEAN(expect, actual) EXPECT_EQ_BASE((expect == actual), expect, actual, "%d")
 #define EXPECT_EQ_NUMBER(expect, actual) EXPECT_EQ_BASE((expect == actual), expect, actual, "%.17g")
+#if defined(_MSC_VER)
+#define EXPECT_EQ_SIZE_T(expect, actual) EXPECT_EQ_BASE((expect) == (actual), (size_t)expect, (size_t)actual, "%Iu")
+#else
+#define EXPECT_EQ_SIZE_T(expect, actual) EXPECT_EQ_BASE((expect) == (actual), (size_t)expect, (size_t)actual, "%zu")
+#endif
 
 
 //测试不符合情况的重构
@@ -92,6 +97,35 @@ static void test_parse_invalid_string_char() {
 
 	TEST_ERROR(LEPT_PARSE_INVALID_STRING_CHAR, "\"\x01\"");
 	TEST_ERROR(LEPT_PARSE_INVALID_STRING_CHAR, "\"\x1F\"");
+}
+
+static void text_parse_array() {
+	lept_value v;
+	lept_init(&v);
+	EXPECT_EQ_INT(LEPT_PARSE_OK, lept_parse(&v, "[ ]"));
+	EXPECT_EQ_INT(LEPT_ARRAY, lept_get_type(&v));
+	EXPECT_EQ_SIZE_T(0, lept_get_arr_length(&v));
+
+	lept_init(&v);
+	EXPECT_EQ_INT(LEPT_PARSE_OK, lept_parse(&v, "[ null , false , true , 123 , \"abc\" ]"));
+	EXPECT_EQ_INT(LEPT_ARRAY, lept_get_type(&v));
+	EXPECT_EQ_SIZE_T(5, lept_get_arr_length(&v));
+	EXPECT_EQ_INT(LEPT_NULL, lept_get_type(lept_get_arr_element(&v, 0)));
+	lept_free(&v);
+
+	lept_init(&v);
+	EXPECT_EQ_INT(LEPT_PARSE_OK, lept_parse(&v, "[ [ ] , [ 0 ] , [ 0 , 1 ] , [ 0 , 1 , 2 ] ]"));
+	EXPECT_EQ_INT(LEPT_ARRAY, lept_get_type(&v));
+	EXPECT_EQ_SIZE_T(4, lept_get_arr_length(&v));
+	for (unsigned int i = 0; i < 4; i++) {
+		lept_value* a = lept_get_arr_element(&v, i);
+		EXPECT_EQ_INT(LEPT_ARRAY, lept_get_type(a));
+		for (unsigned int j = 0; j < a->u.arr.size; j++) {
+			EXPECT_EQ_INT(LEPT_NUMBER, lept_get_type(lept_get_arr_element(a, j)));
+		}
+	}
+	lept_free(&v);
+
 }
 
 static void text_parse_number() {
@@ -240,6 +274,7 @@ static void test_access_null() {
 }
 
 static void text_parse() {
+	text_parse_array();
 	//text_parse_false();
 	//text_parse_true();
 	//text_parse_null();

@@ -241,15 +241,75 @@ int lept_parse_string(lept_context* c, lept_value* v) {
 	}
 }
 
+int lept_parse_value(lept_context* c, lept_value* v);
+
+int lept_parse_array(lept_context* c, lept_value* v) {
+	size_t size = 0;
+	int ret = 0;
+
+	c->json++;
+
+	lept_parse_white(c);  //空
+
+	if (*c->json == ']') {
+		c->json++;
+		v->type = LEPT_ARRAY;
+		v->u.arr.size = 0;
+		v->u.arr.e = NULL;
+		return LEPT_PARSE_OK;
+	}
+
+	while (1) {
+
+		lept_parse_white(c);  //空
+		lept_value e;
+		lept_init(&e);
+		
+		if ((ret = lept_parse_value(c, &e)) != LEPT_PARSE_OK) {
+			printf("ret = %d\n", ret);
+			break;
+		}
+		memcpy(lept_context_push(c, sizeof(lept_value)), &e, sizeof(lept_value));
+		size++;
+		printf("size = %d\n", size);
+
+		lept_parse_white(c);  //空
+
+		if (*c->json == ',') {
+			c->json++;
+		}
+		else if (*c->json == ']') {
+			c->json++;
+			v->type = LEPT_ARRAY;
+			v->u.arr.size = size;
+			size = size * sizeof(lept_value);
+			v->u.arr.e = (lept_value*)malloc(size);
+			memcpy(v->u.arr.e, lept_context_pop(c, size), size);
+			return LEPT_PARSE_OK;
+		}
+		else {
+			ret = LEPT_PARSE_MISS_COMMA_OR_SQUARE_BRACKET;
+			break;
+		}
+	}
+
+	for (unsigned int i = 0; i < size; i++) {
+		lept_free((lept_value*)lept_context_pop(c, sizeof(lept_value)));
+	}
+	return ret;
+
+}
+
 int lept_parse_value(lept_context* c, lept_value* v) {
 	const char* p = c->json;
 	switch (*p)
 	{
-	case'f': return lept_parse_literal(c, v, "flase", LEPT_FALSE);
+	case'f': return lept_parse_literal(c, v, "false", LEPT_FALSE);
 	case'n': return lept_parse_literal(c, v, "null", LEPT_NULL);
 	case't': return lept_parse_literal(c, v, "true", LEPT_TRUE);
 	case'\0': return LEPT_PARSE_EXPEXT_VALUE; //为空
 	case'"': return lept_parse_string(c, v);
+	case'[': return lept_parse_array(c, v);
 	default: return lept_parse_number(c, v);
 	}
 }
@@ -270,6 +330,7 @@ int lept_parse(lept_value* v, const char* json) {
 			return LEPT_PARSE_ROOT_NOT_SINGULAR;
 		}
 	}
+	//printf("ret = %d\n", ret);
 	assert(c.top == 0);
 	free(c.stack);
 	return ret;
@@ -286,7 +347,25 @@ void lept_free(lept_value* v) {
 	if (v->type == LEPT_STRING) {
 		free(v->u.str.s);
 	}
+	else if (v->type == LEPT_ARRAY) {
+		for (unsigned int i = 0; i < v->u.arr.size; i++)
+			lept_free(&v->u.arr.e[i]);
+		free(v->u.arr.e);
+	}
 	v->type = LEPT_NULL;
+}
+
+size_t lept_get_arr_length(const lept_value* v)
+{
+	assert(v != NULL && v->type == LEPT_ARRAY);
+	return v->u.arr.size;
+}
+
+lept_value* lept_get_arr_element(const lept_value* v, size_t index)
+{
+	assert(v != NULL && v->type == LEPT_ARRAY);
+	assert(index < v->u.arr.size);
+	return &v->u.arr.e[index];
 }
 
 //如果是数字获取数字
