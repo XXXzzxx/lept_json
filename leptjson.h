@@ -38,7 +38,7 @@ enum {
 	LEPT_PARSE_INVALID_UNICODE_HEX,	//8 unicode十六进制格式错误
 	LEPT_PARSE_INVALID_UNICODE_SURROGATE,	//9 unicode高代理项缺少低代理项
 	LEPT_ENCODE_UTF8_ERROR,			//10 
-	LEPT_PARSE_MISS_COMMA_OR_SQUARE_BRACKET	//11 数组缺少]
+	LEPT_PARSE_MISS_COMMA_OR_SQUARE_BRACKET	//11 数组缺少]   但是比如 nulla 现在null解析了, 但是发现不是null  也会报这个错
 };
 
 #define lept_init(v) do { (v)->type = LEPT_NULL; } while(0)
