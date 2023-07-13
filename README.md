@@ -24,3 +24,7 @@
 3. 然后连续再malloc一个存空的array两次, 最后malloc一个`3*sizeof(lept_value)`的空间
 4. 中间还需要用到栈来暂时存放,push和pop都需要在外面配合memcpy来使用.  
 5. push返回的是当前栈顶的后一个位置 pop返回的是被pop出去的字符串的第一位地址
+
+## 对象解析
+1. 跟数组是类似的,  结构{key:value, key:value}   key必须为字符串
+2. 对于malloc   比如想把"4234" 赋值给char* ch  先对ch进行malloc  然后memcpy  然后最后要给ch加上'\0'
