@@ -322,7 +322,6 @@ static void test_parse_object() {
 	EXPECT_EQ_INT(LEPT_OBJECT, lept_get_type(&v));
 	EXPECT_EQ_SIZE_T(7, lept_get_object_size(&v));
 	EXPECT_EQ_STRING("n", lept_get_object_key(&v, 0), lept_get_object_length(&v, 0));
-	printf("==================%d\n", lept_get_object_length(&v, 0));
 	EXPECT_EQ_INT(LEPT_NULL, lept_get_type(lept_get_object_value(&v, 0)));
 	EXPECT_EQ_STRING("f", lept_get_object_key(&v, 1), lept_get_object_length(&v, 1));
 	EXPECT_EQ_INT(LEPT_FALSE, lept_get_type(lept_get_object_value(&v, 1)));
